@@ -8,7 +8,7 @@ namespace Converter_with_api
 {
     public partial class Form1 : Form
     {
-        // Declare variables for the API URL and your access key
+        // Declare variables for the API URL and my access key
         private static readonly string apiUrl = "https://api.exchangerate-api.com/v4/latest/";
 
         public Form1()
@@ -28,7 +28,7 @@ namespace Converter_with_api
             comboBoxToCurrency.SelectedIndex = 1; // Default to USD
         }
 
-        // Handle conversion logic when the Convert button is clicked
+        // conversion logic when the Convert button is clicked
         private async void btnConvert_Click(object sender, EventArgs e)
         {
             try

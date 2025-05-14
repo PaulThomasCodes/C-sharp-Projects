@@ -1,129 +1,83 @@
 using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using Newtonsoft.Json.Linq;
 
-namespace Converter_with_api
+namespace ClientSessionTracker
 {
     public partial class Form1 : Form
     {
-        // Declare variables for the API URL and my access key
-        private static readonly string apiUrl = "https://api.exchangerate-api.com/v4/latest/";
-
+        // Constructor: Initializes the components
         public Form1()
         {
-            InitializeComponent();
+            InitializeComponent();  // This loads the designer code where controls are initialized
         }
 
-        // Form Load event to populate ComboBoxes with currency options
-        private void Form1_Load(object sender, EventArgs e)
+        // Event handler for the txtClientName text box "TextChanged" event
+        // Triggered every time the user changes the text in the txtClientName field
+        private void txtClientName_TextChanged(object sender, EventArgs e)
         {
-            string[] currencies = { "EUR", "USD", "GBP", "CNY", "JPY" };
-
-            comboBoxFromCurrency.Items.AddRange(currencies);
-            comboBoxToCurrency.Items.AddRange(currencies);
-
-            comboBoxFromCurrency.SelectedIndex = 0; // Default to EUR
-            comboBoxToCurrency.SelectedIndex = 1; // Default to USD
-        }
-
-        // conversion logic when the Convert button is clicked
-        private async void btnConvert_Click(object sender, EventArgs e)
-        {
-            try
+           
+            if (string.IsNullOrWhiteSpace(txtClientName.Text))
             {
-                if (decimal.TryParse(txtInput.Text, out decimal inputAmount))
-                {
-                    // Get the conversion rate from the API
-                    decimal conversionRate = await GetExchangeRateAsync(comboBoxFromCurrency.SelectedItem.ToString(), comboBoxToCurrency.SelectedItem.ToString());
-
-                    // Calculate the converted value
-                    decimal result = inputAmount * conversionRate;
-
-                    // Show the result in the output textbox
-                    txtOutput.Text = result.ToString("0.##");
-
-                    // Display an appropriate image based on the conversion result
-                    DisplayFinancialImage(result);
-                }
-                else
-                {
-                    MessageBox.Show("Please enter a valid amount.");
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message);
-            }
-        }
-
-        // Call the API and get the conversion rate for the selected currencies
-        private async Task<decimal> GetExchangeRateAsync(string fromCurrency, string toCurrency)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                string url = apiUrl + fromCurrency;
-                HttpResponseMessage response = await client.GetAsync(url);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    string responseData = await response.Content.ReadAsStringAsync();
-                    var json = JObject.Parse(responseData);
-
-                    // Log the entire response for debugging
-                    Console.WriteLine(json.ToString());
-
-                    if (json["rates"] != null && json["rates"][toCurrency] != null)
-                    {
-                        return json["rates"][toCurrency].Value<decimal>();
-                    }
-                    else
-                    {
-                        throw new Exception($"Rate for {toCurrency} not found.");
-                    }
-                }
-                else
-                {
-                    throw new Exception("Failed to fetch exchange rates from the API.");
-                }
-            }
-        }
-
-        // Display the appropriate financial image based on the converted value
-        private void DisplayFinancialImage(decimal amount)
-        {
-            if (amount < 30000)
-            {
-                pictureBox1.Visible = true; // Struggling
-                pictureBox2.Visible = false;
-                pictureBox3.Visible = false;
-            }
-            else if (amount >= 30000 && amount < 75000)
-            {
-                pictureBox1.Visible = false;
-                pictureBox2.Visible = true; // Comfortable
-                pictureBox3.Visible = false;
+                // If the name is empty, disable the Add Session button
+                btnAddSession.Enabled = false;
             }
             else
             {
-                pictureBox1.Visible = false;
-                pictureBox2.Visible = false;
-                pictureBox3.Visible = true; // Lavish
+                // If the name is not empty, enable the Add Session button
+                btnAddSession.Enabled = true;
             }
         }
 
-        // Handle the Clear button click to reset the form
-        private void btnClear_Click(object sender, EventArgs e)
+        // Event handler for the "Add Session" button click
+        private void btnAddSession_Click(object sender, EventArgs e)
         {
-            txtInput.Clear();
-            txtOutput.Clear();
-            comboBoxFromCurrency.SelectedIndex = 0;
-            comboBoxToCurrency.SelectedIndex = 1;
+            try
+            {
+                // Ensure all required fields are filled
+                if (string.IsNullOrEmpty(txtClientName.Text) || dtpSessionDate.Value == null ||
+                    string.IsNullOrEmpty(txtSessionNotes.Text))
+                {
+                    MessageBox.Show("Please complete all fields before adding a session.", "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;  // Exit if validation fails
+                }
 
-            pictureBox1.Visible = false;
-            pictureBox2.Visible = false;
-            pictureBox3.Visible = false;
+                // Create a new list view item for session details
+                ListViewItem newItem = new ListViewItem(txtClientName.Text);  // Add client name
+                newItem.SubItems.Add(dtpSessionDate.Value.ToString("yyyy-MM-dd"));  // Add session date
+                newItem.SubItems.Add(txtSessionNotes.Text);  // Add session notes
+                newItem.SubItems.Add(UpDownFee.Value.ToString("C"));  // Add session fee
+                newItem.SubItems.Add(checkBoxPaid.Checked ? "Paid" : "Unpaid");  // Add payment status
+
+                // Add the new session to the list view
+                listViewSessions.Items.Add(newItem);
+
+                // update the unpaid balance after each session is added
+                UpdateUnpaidBalance();
+            }
+            catch (Exception ex)
+            {
+                // Handle unexpected errors
+                MessageBox.Show("An error occurred: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Method to update the unpaid balance label based on session fees
+        private void UpdateUnpaidBalance()
+        {
+            decimal totalUnpaid = 0m;
+
+            // Loop through the items in the list view and calculate the unpaid balance
+            foreach (ListViewItem item in listViewSessions.Items)
+            {
+                if (item.SubItems[4].Text == "Unpaid")  // Check if the session is unpaid
+                {
+                    decimal fee = decimal.Parse(item.SubItems[3].Text, System.Globalization.NumberStyles.Currency);
+                    totalUnpaid += fee;  // Add unpaid session fee to total
+                }
+            }
+
+            // Display the total unpaid balance on the label
+            lblUnpaidBalance.Text = "Unpaid Balance: " + totalUnpaid.ToString("C");
         }
     }
 }
